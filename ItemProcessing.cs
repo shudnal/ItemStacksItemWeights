@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using static ItemStacksItemWeights.ItemStacksItemWeights;
 
@@ -21,8 +22,8 @@ namespace ItemStacksItemWeights
 
             if (Player.m_localPlayer)
             {
-                PatchPlayerInventory(Player.m_localPlayer);
-                LogInfo("Patched local player inventory");
+                if (PatchPlayerInventory(Player.m_localPlayer))
+                    LogInfo("Patched local player inventory");
 
                 // Value updated while playing, container needs to be also updated
                 containerUpdateRequired = true;
@@ -51,13 +52,16 @@ namespace ItemStacksItemWeights
             LogInfo("Patched ObjectDB items");
         }
 
-        public static void PatchShared(ItemDrop.ItemData.SharedData shared)
+        public static bool PatchShared(ItemDrop.ItemData.SharedData shared)
         {
             if (shared == null)
-                return;
+                return false;
+
+            int originalStack = shared.m_maxStackSize;
+            float originalWeight = shared.m_weight;
 
             int stackSize = shared.GetDefaultItemStack();
-            if (stackSize > 1) // Default values not set
+            if (stackSize > 1)
             {
                 shared.m_maxStackSize = stackSize;
 
@@ -85,22 +89,39 @@ namespace ItemStacksItemWeights
                 else if (itemConfig.weightMultiplier.TryGetValue(ItemConfigurations.global, out float globalWeightMultiplier))
                     shared.m_weight *= globalWeightMultiplier;
             }
+
+            return originalStack != shared.m_maxStackSize || originalWeight != shared.m_weight;
         }
 
-        public static void PatchItem(ItemDrop.ItemData item) => PatchShared(item?.m_shared);
+        public static int PatchItem(ItemDrop.ItemData item) => PatchShared(item?.m_shared) ? 1 : 0;
 
-        public static void PatchInventory(Inventory inventory)
+        public static bool PatchInventory(Inventory inventory)
         {
             if (inventory == null)
-                return;
+                return false;
 
-            inventory.m_inventory?.Do(PatchItem);
-            inventory.Changed();
+            if (inventory.m_inventory?.Sum(PatchItem) > 0)
+            {
+                inventory.Changed();
+                return true;
+            }
+
+            return false;
         }
 
-        public static void PatchPlayerInventory(Player player)
+        public static bool PatchPlayerInventory(Player player) => PatchInventory(player?.GetInventory());
+
+        [HarmonyPatch(typeof(ItemDrop), nameof(ItemDrop.Awake))]
+        public static class ItemDrop_Awake_PatchItems
         {
-            PatchInventory(player?.GetInventory());
+            [HarmonyPriority(Priority.Last)]
+            private static void Postfix(ItemDrop __instance)
+            {
+                if (FejdStartup.instance != null)
+                    return;
+
+                PatchItem(__instance.m_itemData);
+            }
         }
 
         [HarmonyPatch(typeof(ItemDrop), nameof(ItemDrop.OnCreateNew), typeof(ItemDrop))]
@@ -125,8 +146,8 @@ namespace ItemStacksItemWeights
                 if (FejdStartup.instance != null)
                     return;
 
-                PatchPlayerInventory(__instance);
-                LogInfo("Patched player inventory");
+                if (PatchPlayerInventory(__instance))
+                    LogInfo("Patched player inventory");
 
                 containerInventoryUpdated.Clear();
                 containerUpdateRequired = false;
@@ -146,9 +167,10 @@ namespace ItemStacksItemWeights
             {
                 if (__instance == InventoryGui.instance.ContainerGrid && containerUpdateRequired && !containerInventoryUpdated.Contains(__instance.m_inventory))
                 {
-                    PatchInventory(__instance.m_inventory);
+                    if (PatchInventory(__instance.m_inventory))
+                        LogInfo($"Inventory {__instance.m_inventory} patched");
+
                     containerInventoryUpdated.Add(__instance.m_inventory);
-                    LogInfo($"Inventory {__instance.m_inventory} patched");
                 }
             }
         }

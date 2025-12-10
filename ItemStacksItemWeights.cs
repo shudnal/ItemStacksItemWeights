@@ -29,7 +29,8 @@ namespace ItemStacksItemWeights
         public static readonly CustomSyncedValue<ItemConfigurations> configurationFile = new(configSync, $"{pluginID}.ConfigurationFile", new());
 
         public static readonly string filename = $"{pluginID}.yml";
-        public static readonly string filepath = Path.Combine(Paths.ConfigPath, filename);
+        public static readonly string filepath = Path.Combine(Paths.ConfigPath, pluginID);
+        public static readonly string fullpath = Path.Combine(filepath, filename);
 
         public FileSystemWatcher fileWatcher;
 
@@ -47,21 +48,25 @@ namespace ItemStacksItemWeights
 
         private void Start()
         {
-            if (!File.Exists(filepath))
-                File.WriteAllText(filepath, new Serializer().Serialize(new ItemConfigurations()));
+            if (!Directory.Exists(filepath))
+                Directory.CreateDirectory(filepath);
 
-            fileWatcher = new FileSystemWatcher(Paths.ConfigPath, filename);
+            if (!File.Exists(fullpath))
+                File.WriteAllText(fullpath, new Serializer().Serialize(new ItemConfigurations()));
+
+            fileWatcher = new FileSystemWatcher(filepath, filename);
             fileWatcher.Changed += (s, e) => LoadConfigs();
             fileWatcher.Created += (s, e) => ClearConfigs();
             fileWatcher.Renamed += (s, e) => ClearConfigs();
             fileWatcher.Deleted += (s, e) => ClearConfigs();
-            fileWatcher.IncludeSubdirectories = false;
             fileWatcher.SynchronizingObject = ThreadingHelper.SynchronizingObject;
             fileWatcher.EnableRaisingEvents = true;
 
             LoadConfigs();
 
             configurationFile.ValueChanged += ItemProcessing.OnConfigFileChange;
+
+            DocGen.InitCommand();
         }
 
         private void OnDestroy()
@@ -75,6 +80,11 @@ namespace ItemStacksItemWeights
         {
             if (loggingEnabled.Value)
                 instance.Logger.LogInfo(data);
+        }
+
+        public static void LogWarning(object data)
+        {
+            instance.Logger.LogWarning(data);
         }
 
         public void ConfigInit()
@@ -104,13 +114,13 @@ namespace ItemStacksItemWeights
 
         public void LoadConfigs()
         {
-            if (!File.Exists(filepath))
+            if (!File.Exists(fullpath))
                 return;
 
             ItemConfigurations configFile;
             try
             {
-                configFile = new Deserializer().Deserialize<ItemConfigurations>(File.ReadAllText(filepath));
+                configFile = new Deserializer().Deserialize<ItemConfigurations>(File.ReadAllText(fullpath));
             }
             catch (Exception e)
             {

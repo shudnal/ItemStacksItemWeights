@@ -70,6 +70,8 @@ namespace ItemStacksItemWeights
 
             ItemStacksItemWeights.LogInfo("Items defaults updated");
 
+            DocGen.GenerateDocumentationFile();
+
             ItemProcessing.PatchObjectDB();
         }
 

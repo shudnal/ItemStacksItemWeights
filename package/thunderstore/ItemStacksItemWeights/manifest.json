@@ -1,0 +1,10 @@
+{
+  "name": "ItemStacksItemWeights",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/shudnal/ItemStacksItemWeights",
+  "description": "Control item stack sizes and weights. Dynamic server-to-client synchronization. Works globally or per item.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2333",
+    "ValheimModding-YamlDotNet-16.3.1"
+  ]
+}
