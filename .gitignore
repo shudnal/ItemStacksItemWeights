@@ -363,3 +363,5 @@ MigrationBackup/
 FodyWeavers.xsd
 /package/thunderstore/ItemStacksItemWeights/ItemStacksItemWeights.dll
 /package/thunderstore/ItemStacksItemWeights.zip
+/package/nexus/ItemStacksItemWeights/ItemStacksItemWeights.dll
+/package/nexus/ItemStacksItemWeights.zip
