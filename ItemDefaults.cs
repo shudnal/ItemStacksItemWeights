@@ -20,28 +20,6 @@ namespace ItemStacksItemWeights
             }
         }
 
-        [HarmonyPatch(typeof(FejdStartup))]
-        private static class FejdStartup_UpdateRegisters
-        {
-            [HarmonyPatch(nameof(FejdStartup.Awake))]
-            [HarmonyPostfix]
-            private static void Awake_Postfix()
-            {
-                itemNames.Clear();
-                itemWeight.Clear();
-                itemStack.Clear();
-            }
-
-            [HarmonyPatch(nameof(FejdStartup.OnDestroy))]
-            [HarmonyPostfix]
-            private static void OnDestroy_Postfix()
-            {
-                itemNames.Clear();
-                itemWeight.Clear();
-                itemStack.Clear();
-            }
-        }
-
         public static void UpdateRegisters()
         {
             if (!ObjectDB.instance)
@@ -61,11 +39,17 @@ namespace ItemStacksItemWeights
                     itemNames[shared.m_name] = shared.m_name;
                 }
 
-                itemWeight[item.name] = shared.m_weight;
-                itemWeight[shared.m_name] = shared.m_weight;
+                if (!itemWeight.ContainsKey(item.name))
+                    itemWeight[item.name] = shared.m_weight;
 
-                itemStack[item.name] = shared.m_maxStackSize;
-                itemStack[shared.m_name] = shared.m_maxStackSize;
+                if (!itemWeight.ContainsKey(shared.m_name))
+                    itemWeight[shared.m_name] = shared.m_weight;
+
+                if (!itemStack.ContainsKey(item.name))
+                    itemStack[item.name] = shared.m_maxStackSize;
+                
+                if (!itemStack.ContainsKey(shared.m_name))
+                    itemStack[shared.m_name] = shared.m_maxStackSize;
             }
 
             ItemStacksItemWeights.LogInfo("Items defaults updated");

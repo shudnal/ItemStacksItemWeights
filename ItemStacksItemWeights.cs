@@ -13,7 +13,7 @@ namespace ItemStacksItemWeights
     {
         public const string pluginID = "shudnal.ItemStacksItemWeights";
         public const string pluginName = "Item Stacks Item Weights";
-        public const string pluginVersion = "1.0.0";
+        public const string pluginVersion = "1.0.1";
 
         public readonly Harmony harmony = new(pluginID);
 
