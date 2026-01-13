@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HarmonyLib;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -59,6 +60,9 @@ namespace ItemStacksItemWeights
 
             string originalLanguage = Localization.instance.GetSelectedLanguage();
 
+            Dictionary<string, string> prevTranslations = new();
+            prevTranslations.Copy(Localization.instance.m_translations);
+
             Localization.instance.SetLanguage("English");
 
             foreach (GameObject item in ObjectDB.instance.m_items)
@@ -82,6 +86,8 @@ namespace ItemStacksItemWeights
             }
 
             Localization.instance.SetLanguage(originalLanguage);
+
+            prevTranslations.DoIf(kvp => !Localization.instance.m_translations.ContainsKey(kvp.Key), kvp => Localization.instance.AddWord(kvp.Key, kvp.Value));
 
             for (int i = 0; i < rows.Count; ++i)
             {
@@ -110,16 +116,16 @@ namespace ItemStacksItemWeights
 
             int totalWidth = wPrefab + wToken + wEnglish + wLocalized + wStack + wWeight + wType + 18;
             sb.AppendLine(new string('-', totalWidth));
-            foreach (var r in rows)
+            foreach (var (prefab, token, english, localized, stack, weight, type) in rows)
             {
                 sb.AppendLine(
-                    $"{Pad(r.prefab, wPrefab)}   " +
-                    $"{Pad(r.token, wToken)}   " +
-                    $"{Pad(r.english, wEnglish)}   " +
-                    $"{Pad(r.localized, wLocalized)}   " +
-                    $"{Pad(r.stack, wStack)}   " +
-                    $"{Pad(r.weight, wWeight)}   " +
-                    $"{Pad(r.type, wType)}"
+                    $"{Pad(prefab, wPrefab)}   " +
+                    $"{Pad(token, wToken)}   " +
+                    $"{Pad(english, wEnglish)}   " +
+                    $"{Pad(localized, wLocalized)}   " +
+                    $"{Pad(stack, wStack)}   " +
+                    $"{Pad(weight, wWeight)}   " +
+                    $"{Pad(type, wType)}"
                 );
             }
 
