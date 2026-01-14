@@ -1,3 +1,6 @@
+# 1.0.3
+* added new configs: compact stack size, compact amount size, shortcut to bypass changes
+
 # 1.0.2
 * fixed side incompatibility with mods using inhouse localization implementation (like PlantEverything and QSSSRT)
 

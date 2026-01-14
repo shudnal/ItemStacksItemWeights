@@ -4,6 +4,7 @@ using HarmonyLib;
 using ServerSync;
 using System;
 using System.IO;
+using UnityEngine;
 using YamlDotNet.Serialization;
 
 namespace ItemStacksItemWeights
@@ -13,7 +14,7 @@ namespace ItemStacksItemWeights
     {
         public const string pluginID = "shudnal.ItemStacksItemWeights";
         public const string pluginName = "Item Stacks Item Weights";
-        public const string pluginVersion = "1.0.2";
+        public const string pluginVersion = "1.0.3";
 
         public readonly Harmony harmony = new(pluginID);
 
@@ -25,6 +26,9 @@ namespace ItemStacksItemWeights
         public static ConfigEntry<bool> loggingEnabled;
 
         public static ConfigEntry<bool> hideStackSize;
+        public static ConfigEntry<bool> compactStackSize;
+        public static ConfigEntry<bool> compactAmountSize;
+        public static ConfigEntry<KeyboardShortcut> showFullStackSize;
 
         public static readonly CustomSyncedValue<ItemConfigurations> configurationFile = new(configSync, $"{pluginID}.ConfigurationFile", new());
 
@@ -92,6 +96,9 @@ namespace ItemStacksItemWeights
             configLocked = config("General", "Lock Configuration", defaultValue: true, "Configuration is locked and can be changed by server admins only.");
             loggingEnabled = config("General", "Logging enabled", defaultValue: false, "Enable logging. [Not Synced with Server]", false);
             hideStackSize = config("General", "Hide stack size", defaultValue: false, "Hide stack size of items");
+            compactStackSize = config("General", "Compact stack size", defaultValue: false, "Display large stack sizes in a compact format (e.g. 1k instead of 1000, 1M instead of 1000000).");
+            compactAmountSize = config("General", "Compact amount size", defaultValue: false, "Display large amount of items in a compact format (e.g. 1k instead of 1000, 1M instead of 1000000). The number is rounded down.");
+            showFullStackSize = config("General", "Show full stack size", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to display stack sizes without changes.");
         }
 
         ConfigEntry<T> config<T>(string group, string name, T defaultValue, ConfigDescription description, bool synchronizedSetting = true)
@@ -132,34 +139,105 @@ namespace ItemStacksItemWeights
             LogInfo($"Config file changed: {filename}");
         }
 
+        private static string FormatCompact(int value)
+        {
+            if (value < 1000)
+                return value.ToString();
+
+            if (value < 1_000_000)
+            {
+                float v = Mathf.Floor(value / 100f) / 10f;
+                return v.ToString("0.#") + "k";
+            }
+
+            float m = Mathf.Floor(value / 100_000f) / 10f;
+            return m.ToString("0.#") + "M";
+        }
+
         [HarmonyPatch(typeof(HotkeyBar), nameof(HotkeyBar.UpdateIcons))]
-        public static class HotkeyBar_UpdateIcons_HideStackSize
+        public static class HotkeyBar_UpdateIcons_StackSizeFormatting
         {
             public static void Postfix(HotkeyBar __instance)
             {
-                if (!hideStackSize.Value)
+                if (showFullStackSize.Value.IsPressed() || !hideStackSize.Value && !compactStackSize.Value && !compactAmountSize.Value)
                     return;
 
-                for (int index = 0; index < __instance.m_elements.Count; index++)
+                foreach (var element in __instance.m_elements)
                 {
-                    HotkeyBar.ElementData elementData = __instance.m_elements[index];
-                    if (elementData.m_amount.gameObject.activeInHierarchy)
-                        elementData.m_amount.SetText(elementData.m_stackText.ToFastString());
+                    if (!element.m_amount.gameObject.activeInHierarchy)
+                        continue;
+
+                    string text = element.m_amount.text;
+                    if (string.IsNullOrEmpty(text))
+                        continue;
+
+                    string[] parts = text.Split('/');
+                    if (parts.Length == 0)
+                        continue;
+
+                    string amountText = parts[0];
+                    string maxText = parts.Length > 1 ? parts[1] : null;
+
+                    if (compactAmountSize.Value && int.TryParse(amountText, out int amount))
+                        amountText = FormatCompact(amount);
+
+                    if (hideStackSize.Value)
+                    {
+                        element.m_amount.SetText(amountText);
+                        continue;
+                    }
+
+                    if (compactStackSize.Value && maxText != null && int.TryParse(maxText, out int max))
+                        maxText = FormatCompact(max);
+
+                    element.m_amount.SetText(maxText != null
+                        ? $"{amountText}/{maxText}"
+                        : amountText);
                 }
             }
         }
 
         [HarmonyPatch(typeof(InventoryGrid), nameof(InventoryGrid.UpdateGui))]
-        public static class InventoryGrid_UpdateGui_HideStackSize
+        public static class InventoryGrid_UpdateGui_StackSizeFormatting
         {
             public static void Postfix(InventoryGrid __instance)
             {
-                if (!hideStackSize.Value)
+                if (showFullStackSize.Value.IsPressed() || !hideStackSize.Value && !compactStackSize.Value && !compactAmountSize.Value)
                     return;
 
                 foreach (InventoryGrid.Element element in __instance.m_elements)
-                    if (element.m_amount.gameObject.activeInHierarchy)
-                        element.m_amount.SetText(element.m_amount.text.Split('/')[0]);
+                {
+                    if (!element.m_amount.gameObject.activeInHierarchy)
+                        continue;
+
+                    string text = element.m_amount.text;
+                    if (string.IsNullOrEmpty(text))
+                        continue;
+
+                    string[] parts = text.Split('/');
+
+                    string amountText = parts[0];
+
+                    if (compactAmountSize.Value && int.TryParse(amountText, out int amount))
+                        amountText = FormatCompact(amount);
+
+                    if (hideStackSize.Value)
+                    {
+                        element.m_amount.SetText(amountText);
+                        continue;
+                    }
+
+                    string maxText = parts.Length > 1 ? parts[1] : null;
+
+                    if (compactStackSize.Value && maxText != null && int.TryParse(maxText, out int max))
+                        maxText = FormatCompact(max);
+
+                    element.m_amount.SetText(
+                        maxText != null
+                            ? $"{amountText}/{maxText}"
+                            : amountText
+                    );
+                }
             }
         }
     }
