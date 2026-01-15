@@ -14,7 +14,7 @@ namespace ItemStacksItemWeights
     {
         public const string pluginID = "shudnal.ItemStacksItemWeights";
         public const string pluginName = "Item Stacks Item Weights";
-        public const string pluginVersion = "1.0.3";
+        public const string pluginVersion = "1.0.4";
 
         public readonly Harmony harmony = new(pluginID);
 
@@ -98,7 +98,7 @@ namespace ItemStacksItemWeights
             hideStackSize = config("General", "Hide stack size", defaultValue: false, "Hide stack size of items");
             compactStackSize = config("General", "Compact stack size", defaultValue: false, "Display large stack sizes in a compact format (e.g. 1k instead of 1000, 1M instead of 1000000).");
             compactAmountSize = config("General", "Compact amount size", defaultValue: false, "Display large amount of items in a compact format (e.g. 1k instead of 1000, 1M instead of 1000000). The number is rounded down.");
-            showFullStackSize = config("General", "Show full stack size", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to display stack sizes without changes.");
+            showFullStackSize = config("General", "Show full stack size", defaultValue: new KeyboardShortcut(KeyCode.LeftAlt), "Hold to display stack sizes without changes. [Not Synced with Server]", false);
         }
 
         ConfigEntry<T> config<T>(string group, string name, T defaultValue, ConfigDescription description, bool synchronizedSetting = true)

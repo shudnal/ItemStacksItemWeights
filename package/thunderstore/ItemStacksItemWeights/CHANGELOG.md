@@ -1,3 +1,6 @@
+# 1.0.4
+* keyboard shortcut to bypass stack size no longer server synced
+
 # 1.0.3
 * added new configs: compact stack size, compact amount size, shortcut to bypass changes
 
