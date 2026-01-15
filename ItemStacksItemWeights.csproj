@@ -41,6 +41,7 @@
     <Compile Include="ItemDefaults.cs" />
     <Compile Include="ItemProcessing.cs" />
     <Compile Include="ItemStacksItemWeights.cs" />
+    <Compile Include="ItemStackText.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

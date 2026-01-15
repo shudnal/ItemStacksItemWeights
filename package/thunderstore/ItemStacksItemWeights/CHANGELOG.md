@@ -1,3 +1,9 @@
+# 1.0.6
+* fixed actual mod assebly version
+
+# 1.0.5
+* support of HTML tags inside stack text (ZenUI compatibility and possibly other similar mods)
+
 # 1.0.4
 * keyboard shortcut to bypass stack size no longer server synced
 
