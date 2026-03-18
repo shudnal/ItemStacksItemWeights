@@ -11,28 +11,47 @@ namespace ItemStacksItemWeights
         public const string global = "Global";
 
         [YamlMember(Alias = "WeightMultiplier")]
-        public Dictionary<string, float> weightMultiplier = new(StringComparer.OrdinalIgnoreCase)
-        {
-            { global, 1f }
-        };
+        public Dictionary<string, float> weightMultiplier = new(StringComparer.OrdinalIgnoreCase);
 
         [YamlMember(Alias = "WeightAmount")]
-        public Dictionary<string, float> weightAmount = new(StringComparer.OrdinalIgnoreCase)
-        {
-             { "Wood", 2f }
-        };
+        public Dictionary<string, float> weightAmount = new(StringComparer.OrdinalIgnoreCase);
 
         [YamlMember(Alias = "StackMultiplier")]
-        public Dictionary<string, float> stackMultiplier = new(StringComparer.OrdinalIgnoreCase)
-        {
-            { global, 1f }
-        };
+        public Dictionary<string, float> stackMultiplier = new(StringComparer.OrdinalIgnoreCase);
 
         [YamlMember(Alias = "StackSize")]
-        public Dictionary<string, int> stackSize = new(StringComparer.OrdinalIgnoreCase)
+        public Dictionary<string, int> stackSize = new(StringComparer.OrdinalIgnoreCase);
+
+        public static ItemConfigurations CreateDefaultTemplate()
         {
-             { "Wood", 50 }
-        };
+            return new ItemConfigurations
+            {
+                weightMultiplier = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { global, 1f }
+                },
+                weightAmount = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "Wood", 2f }
+                },
+                stackMultiplier = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { global, 1f }
+                },
+                stackSize = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "Wood", 50 }
+                }
+            };
+        }
+
+        public void EnsureInitialized()
+        {
+            weightMultiplier ??= new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            weightAmount ??= new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            stackMultiplier ??= new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            stackSize ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        }
 
         public void Serialize(ref ZPackage pkg)
         {
@@ -52,6 +71,9 @@ namespace ItemStacksItemWeights
 
         public void Load(ItemConfigurations itemConfigurations)
         {
+            itemConfigurations ??= new ItemConfigurations();
+            itemConfigurations.EnsureInitialized();
+
             weightMultiplier.Clear();
             weightAmount.Clear();
             stackMultiplier.Clear();

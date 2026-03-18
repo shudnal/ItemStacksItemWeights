@@ -14,7 +14,7 @@ namespace ItemStacksItemWeights
     {
         public const string pluginID = "shudnal.ItemStacksItemWeights";
         public const string pluginName = "Item Stacks Item Weights";
-        public const string pluginVersion = "1.0.6";
+        public const string pluginVersion = "1.0.7";
 
         public readonly Harmony harmony = new(pluginID);
 
@@ -56,7 +56,7 @@ namespace ItemStacksItemWeights
                 Directory.CreateDirectory(filepath);
 
             if (!File.Exists(fullpath))
-                File.WriteAllText(fullpath, new Serializer().Serialize(new ItemConfigurations()));
+                File.WriteAllText(fullpath, new Serializer().Serialize(ItemConfigurations.CreateDefaultTemplate()));
 
             fileWatcher = new FileSystemWatcher(filepath, filename);
             fileWatcher.Changed += (s, e) => LoadConfigs();
@@ -131,7 +131,7 @@ namespace ItemStacksItemWeights
             ItemConfigurations configFile;
             try
             {
-                configFile = new Deserializer().Deserialize<ItemConfigurations>(File.ReadAllText(fullpath));
+                configFile = new Deserializer().Deserialize<ItemConfigurations>(File.ReadAllText(fullpath)) ?? new ItemConfigurations();
             }
             catch (Exception e)
             {
@@ -139,6 +139,7 @@ namespace ItemStacksItemWeights
                 LogInfo($"Error when reading {filename}:\n{e}");
             }
 
+            configFile.EnsureInitialized();
             configurationFile.AssignValueIfChanged(configFile);
             LogInfo($"Config file changed: {filename}");
         }

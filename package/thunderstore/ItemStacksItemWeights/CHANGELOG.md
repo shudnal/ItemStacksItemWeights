@@ -1,3 +1,6 @@
+# 1.0.7
+* fields in configuration file can now be safely omitted
+
 # 1.0.6
 * fixed actual mod assebly version
 
