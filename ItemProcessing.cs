@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -70,9 +71,9 @@ namespace ItemStacksItemWeights
                 else if (itemConfig.stackSize.TryGetValue(ItemConfigurations.global, out int globalStack))
                     shared.m_maxStackSize = globalStack;
                 else if (itemConfig.stackMultiplier.TryGetValue(shared.m_name, out float itemStackMultiplier))
-                    shared.m_maxStackSize = Mathf.CeilToInt(shared.m_maxStackSize * itemStackMultiplier);
+                    shared.m_maxStackSize = ScaleStackSize(shared.m_maxStackSize, itemStackMultiplier);
                 else if (itemConfig.stackMultiplier.TryGetValue(ItemConfigurations.global, out float globalStackMultiplier))
-                    shared.m_maxStackSize = Mathf.CeilToInt(shared.m_maxStackSize * globalStackMultiplier);
+                    shared.m_maxStackSize = ScaleStackSize(shared.m_maxStackSize, globalStackMultiplier);
             }
 
             float weight = shared.GetDefaultItemWeight();
@@ -91,6 +92,11 @@ namespace ItemStacksItemWeights
             }
 
             return originalStack != shared.m_maxStackSize || originalWeight != shared.m_weight;
+        }
+
+        private static int ScaleStackSize(int stackSize, float multiplier)
+        {
+            return (int)Math.Max(1d, Math.Min(int.MaxValue, Math.Ceiling((double)stackSize * multiplier)));
         }
 
         public static int PatchItem(ItemDrop.ItemData item) => PatchShared(item?.m_shared) ? 1 : 0;
@@ -124,7 +130,7 @@ namespace ItemStacksItemWeights
             }
         }
 
-        [HarmonyPatch(typeof(ItemDrop), nameof(ItemDrop.OnCreateNew), typeof(ItemDrop))]
+        [HarmonyPatch(typeof(ItemDrop), nameof(ItemDrop.OnCreateNew), typeof(ItemDrop), typeof(bool))]
         public static class ItemDrop_OnCreateNew_PatchItems
         {
             [HarmonyPriority(Priority.Last)]
@@ -165,7 +171,7 @@ namespace ItemStacksItemWeights
         {
             private static void Postfix(InventoryGrid __instance)
             {
-                if (__instance == InventoryGui.instance.ContainerGrid && containerUpdateRequired && !containerInventoryUpdated.Contains(__instance.m_inventory))
+                if (InventoryGui.instance != null && __instance == InventoryGui.instance.ContainerGrid && containerUpdateRequired && !containerInventoryUpdated.Contains(__instance.m_inventory))
                 {
                     if (PatchInventory(__instance.m_inventory))
                         LogInfo($"Inventory {__instance.m_inventory} patched");

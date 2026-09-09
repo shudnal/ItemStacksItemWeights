@@ -1,7 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
-using ServerSync;
+using ConditionalConfigSync;
 using System;
 using System.IO;
 using UnityEngine;
@@ -10,17 +10,18 @@ using YamlDotNet.Serialization;
 namespace ItemStacksItemWeights
 {
     [BepInPlugin(pluginID, pluginName, pluginVersion)]
+    [BepInDependency("_shudnal.ConditionalConfigSync", "1.0.5")]
     public class ItemStacksItemWeights : BaseUnityPlugin
     {
         public const string pluginID = "shudnal.ItemStacksItemWeights";
         public const string pluginName = "Item Stacks Item Weights";
-        public const string pluginVersion = "1.0.7";
+        public const string pluginVersion = "1.1.1";
 
         public readonly Harmony harmony = new(pluginID);
 
         public static ItemStacksItemWeights instance;
 
-        public static readonly ConfigSync configSync = new(pluginID) { DisplayName = pluginName, CurrentVersion = pluginVersion, MinimumRequiredVersion = pluginVersion };
+        public static readonly ConfigSync configSync = new(pluginID) { DisplayName = pluginName, CurrentVersion = pluginVersion, MinimumRequiredVersion = pluginVersion, ModRequired = true };
 
         public static ConfigEntry<bool> configLocked;
         public static ConfigEntry<bool> loggingEnabled;
@@ -37,6 +38,9 @@ namespace ItemStacksItemWeights
         public static readonly string fullpath = Path.Combine(filepath, filename);
 
         public FileSystemWatcher fileWatcher;
+        private bool reloadPending;
+        private float reloadAt;
+        private int reloadAttempts;
 
         private void Awake()
         {
@@ -59,22 +63,26 @@ namespace ItemStacksItemWeights
                 File.WriteAllText(fullpath, new Serializer().Serialize(ItemConfigurations.CreateDefaultTemplate()));
 
             fileWatcher = new FileSystemWatcher(filepath, filename);
-            fileWatcher.Changed += (s, e) => LoadConfigs();
-            fileWatcher.Created += (s, e) => ClearConfigs();
-            fileWatcher.Renamed += (s, e) => ClearConfigs();
-            fileWatcher.Deleted += (s, e) => ClearConfigs();
+            fileWatcher.Changed += ScheduleConfigReload;
+            fileWatcher.Created += ScheduleConfigReload;
+            fileWatcher.Renamed += ScheduleConfigReload;
+            fileWatcher.Deleted += ScheduleConfigReload;
             fileWatcher.SynchronizingObject = ThreadingHelper.SynchronizingObject;
             fileWatcher.EnableRaisingEvents = true;
 
-            LoadConfigs();
-
             configurationFile.ValueChanged += ItemProcessing.OnConfigFileChange;
+            LoadConfigs();
+            ItemProcessing.OnConfigFileChange();
 
             DocGen.InitCommand();
         }
 
         private void OnDestroy()
         {
+            reloadPending = false;
+            fileWatcher?.Dispose();
+            fileWatcher = null;
+            configurationFile.ValueChanged -= ItemProcessing.OnConfigFileChange;
             Config.Save();
             instance = null;
             harmony?.UnpatchSelf();
@@ -109,8 +117,7 @@ namespace ItemStacksItemWeights
         {
             ConfigEntry<T> configEntry = Config.Bind(group, name, defaultValue, description);
 
-            SyncedConfigEntry<T> syncedConfigEntry = configSync.AddConfigEntry(configEntry);
-            syncedConfigEntry.SynchronizedConfig = synchronizedSetting;
+            configSync.AddConfigEntry(configEntry, ConfigSyncMode.Conditional, serverControlledByDefault: synchronizedSetting);
 
             return configEntry;
         }
@@ -119,29 +126,67 @@ namespace ItemStacksItemWeights
 
         public void ClearConfigs()
         {
-            configurationFile.AssignValueIfChanged(new ItemConfigurations());
+            configurationFile.AssignLocalValueIfChanged(new ItemConfigurations());
             LogInfo($"Config file cleared: {filename}");
+        }
+
+        private void ScheduleConfigReload(object sender, FileSystemEventArgs args)
+        {
+            reloadPending = true;
+            reloadAt = Time.unscaledTime + 0.25f;
+            reloadAttempts = 3;
+        }
+
+        private void Update()
+        {
+            if (!reloadPending || Time.unscaledTime < reloadAt)
+                return;
+
+            reloadAttempts--;
+            if (TryLoadConfigs(out Exception error))
+                reloadPending = false;
+            else if (reloadAttempts > 0)
+                reloadAt = Time.unscaledTime + 0.25f;
+            else
+            {
+                reloadPending = false;
+                LogWarning($"Could not reload {filename}; keeping the last valid configuration. {error}");
+            }
         }
 
         public void LoadConfigs()
         {
-            if (!File.Exists(fullpath))
-                return;
+            if (!TryLoadConfigs(out Exception error))
+            {
+                LogWarning($"Could not load {filename}; keeping the last valid configuration. {error}");
+                ScheduleConfigReload(null, null);
+            }
+        }
 
-            ItemConfigurations configFile;
+        private bool TryLoadConfigs(out Exception error)
+        {
+            error = null;
+            if (!File.Exists(fullpath))
+            {
+                ClearConfigs();
+                return true;
+            }
+
             try
             {
-                configFile = new Deserializer().Deserialize<ItemConfigurations>(File.ReadAllText(fullpath)) ?? new ItemConfigurations();
+                ItemConfigurations configFile = new Deserializer().Deserialize<ItemConfigurations>(File.ReadAllText(fullpath))
+                    ?? new ItemConfigurations();
+                configFile.EnsureInitialized();
+                configFile.Validate();
+                configurationFile.AssignLocalValueIfChanged(configFile);
+                LogInfo($"Config file changed: {filename}");
+                return true;
             }
-            catch (Exception e)
+            catch (Exception exception)
             {
-                configFile = new ItemConfigurations();
-                LogInfo($"Error when reading {filename}:\n{e}");
+                error = exception;
+                return false;
             }
-
-            configFile.EnsureInitialized();
-            configurationFile.AssignValueIfChanged(configFile);
-            LogInfo($"Config file changed: {filename}");
         }
     }
 }

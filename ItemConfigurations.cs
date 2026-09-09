@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,14 +47,48 @@ namespace ItemStacksItemWeights
 
         public void EnsureInitialized()
         {
-            weightMultiplier ??= new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
-            weightAmount ??= new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
-            stackMultiplier ??= new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
-            stackSize ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            weightMultiplier = NormalizeDictionary(weightMultiplier);
+            weightAmount = NormalizeDictionary(weightAmount);
+            stackMultiplier = NormalizeDictionary(stackMultiplier);
+            stackSize = NormalizeDictionary(stackSize);
+        }
+
+        private static Dictionary<string, T> NormalizeDictionary<T>(Dictionary<string, T> source)
+        {
+            if (source != null && source.Comparer.Equals(StringComparer.OrdinalIgnoreCase))
+                return source;
+
+            Dictionary<string, T> result = new(StringComparer.OrdinalIgnoreCase);
+            if (source != null)
+                foreach (KeyValuePair<string, T> pair in source)
+                    result[pair.Key] = pair.Value;
+
+            return result;
+        }
+
+        public void Validate()
+        {
+            EnsureInitialized();
+
+            foreach (KeyValuePair<string, int> entry in stackSize)
+                if (entry.Value < 1)
+                    throw new FormatException($"StackSize for '{entry.Key}' must be positive.");
+
+            ValidateNumbers(stackMultiplier, "StackMultiplier", allowZero: false);
+            ValidateNumbers(weightMultiplier, "WeightMultiplier", allowZero: true);
+            ValidateNumbers(weightAmount, "WeightAmount", allowZero: true);
+        }
+
+        private static void ValidateNumbers(Dictionary<string, float> values, string section, bool allowZero)
+        {
+            foreach (KeyValuePair<string, float> entry in values)
+                if (float.IsNaN(entry.Value) || float.IsInfinity(entry.Value) || entry.Value < 0f || (!allowZero && entry.Value == 0f))
+                    throw new FormatException($"{section} for '{entry.Key}' must be finite and {(allowZero ? "non-negative" : "positive")}.");
         }
 
         public void Serialize(ref ZPackage pkg)
         {
+            EnsureInitialized();
             WriteDict(pkg, weightMultiplier);
             WriteDict(pkg, weightAmount);
             WriteDict(pkg, stackMultiplier);
@@ -63,6 +97,7 @@ namespace ItemStacksItemWeights
 
         public void Deserialize(ref ZPackage pkg)
         {
+            EnsureInitialized();
             ReadDict(pkg, weightMultiplier);
             ReadDict(pkg, weightAmount);
             ReadDict(pkg, stackMultiplier);
@@ -71,6 +106,10 @@ namespace ItemStacksItemWeights
 
         public void Load(ItemConfigurations itemConfigurations)
         {
+            EnsureInitialized();
+            if (ReferenceEquals(this, itemConfigurations))
+                return;
+
             itemConfigurations ??= new ItemConfigurations();
             itemConfigurations.EnsureInitialized();
 

@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using static ItemStacksItemWeights.ItemStacksItemWeights;
 
@@ -41,7 +42,10 @@ namespace ItemStacksItemWeights
 
                 while (j < text.Length && char.IsDigit(text[j]))
                 {
-                    v = v * 10 + (text[j] - '0');
+                    int digit = text[j] - '0';
+                    if (digit < 0 || digit > 9 || v > (int.MaxValue - digit) / 10)
+                        return false;
+                    v = v * 10 + digit;
                     j++;
                 }
 
@@ -69,11 +73,22 @@ namespace ItemStacksItemWeights
 
         private static string TrimAfterIndexPreserveTags(string text, int cutIndex)
         {
-            int lastTagClose = text.LastIndexOf('>');
-            if (lastTagClose >= cutIndex)
-                return text.Substring(0, cutIndex) + text.Substring(lastTagClose + 1);
+            StringBuilder result = new StringBuilder(text.Substring(0, cutIndex));
+            int position = cutIndex;
+            while (position < text.Length)
+            {
+                int tagStart = text.IndexOf('<', position);
+                if (tagStart < 0)
+                    break;
+                int tagEnd = text.IndexOf('>', tagStart + 1);
+                if (tagEnd < 0)
+                    break;
 
-            return text.Substring(0, cutIndex);
+                result.Append(text, tagStart, tagEnd - tagStart + 1);
+                position = tagEnd + 1;
+            }
+
+            return result.ToString();
         }
 
         private static string BuildCompactText(string text)
